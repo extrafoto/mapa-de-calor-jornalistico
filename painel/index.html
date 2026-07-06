@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Calor Jornalístico</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c222b; --border:#2a313c; --border-strong:#3a4453;
+    --text:#e6e9ef; --text-secondary:#9aa4b2; --text-muted:#6b7482;
+    --accent:#eda100;
+    --tiroteio:#e34948; --alagamento:#2a78d6; --transito:#eda100; --acidente:#eb6834;
+    --seguranca:#e87ba4; --falta_luz:#9085e9; --chuva:#1baf7a; --outro:#6b7482;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:1400px;margin:0 auto;padding:20px;}
+
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand i{font-size:22px;color:var(--accent);}
+  .brand h1{font-size:18px;font-weight:500;margin:0;letter-spacing:0.2px;}
+  .brand span{display:block;font-size:12px;color:var(--text-muted);font-family:ui-monospace,monospace;}
+  .status{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text-muted);font-family:ui-monospace,monospace;}
+  .status .sep{width:0.5px;height:14px;background:var(--border-strong);}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--chuva);}
+  .dot.stale{background:var(--text-muted);}
+  .intervalSel{background:transparent;color:var(--text-muted);border:0.5px solid var(--border-strong);border-radius:6px;padding:4px 6px;font-size:11px;font-family:ui-monospace,monospace;}
+
+  .banner{display:none;align-items:center;gap:8px;background:var(--panel2);border:0.5px solid var(--accent);color:var(--accent);border-radius:8px;padding:9px 14px;font-size:13px;margin-bottom:12px;}
+  .banner.show{display:flex;}
+
+  @keyframes pulseNovo{0%{background:rgba(237,161,0,0.22);}100%{background:transparent;}}
+  .ev.novo{animation:pulseNovo 2.5s ease-out 1;}
+  .ev-novo-badge{font-size:10px;color:var(--accent);border:0.5px solid var(--accent);border-radius:4px;padding:1px 5px;}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .seg{display:flex;border:0.5px solid var(--border-strong);border-radius:8px;overflow:hidden;}
+  .seg button{background:transparent;border:none;color:var(--text-secondary);padding:7px 14px;font-size:13px;cursor:pointer;border-right:0.5px solid var(--border-strong);}
+  .seg button:last-child{border-right:none;}
+  .seg button.on{background:var(--accent);color:#3a2600;font-weight:500;}
+  select{background:var(--panel2);color:var(--text);border:0.5px solid var(--border-strong);border-radius:8px;padding:7px 10px;font-size:13px;}
+  .cats{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:20px;border:0.5px solid var(--border-strong);font-size:12px;cursor:pointer;color:var(--text-secondary);user-select:none;}
+  .chip .sw{width:8px;height:8px;border-radius:50%;}
+  .chip.off{opacity:0.35;}
+  .spacer{flex:1;}
+  .refresh{background:transparent;border:0.5px solid var(--border-strong);color:var(--text-secondary);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .refresh:hover{background:var(--panel2);}
+
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+  .metric{background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .metric .l{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+  .metric .v{font-size:22px;font-weight:500;font-family:ui-monospace,monospace;}
+  .metric .v.alert{color:var(--tiroteio);}
+
+  .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;} .metrics{grid-template-columns:repeat(2,1fr);}}
+
+  .card{background:var(--panel);border:0.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .card h2{font-size:13px;font-weight:500;margin:0;padding:12px 14px;border-bottom:0.5px solid var(--border);color:var(--text-secondary);}
+  #map{height:560px;width:100%;background:#0e1116;}
+
+  .list{max-height:560px;overflow-y:auto;}
+  .ev{padding:11px 14px;border-bottom:0.5px solid var(--border);cursor:pointer;}
+  .ev:hover{background:var(--panel2);}
+  .ev.sel{background:var(--panel2);border-left:2px solid var(--accent);}
+  .ev-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .ev-cat{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .ev-title{font-size:13px;font-weight:500;flex:1;}
+  .ev-alert{font-size:10px;color:var(--tiroteio);border:0.5px solid var(--tiroteio);border-radius:4px;padding:1px 5px;}
+  .ev-meta{font-size:11px;color:var(--text-muted);font-family:ui-monospace,monospace;display:flex;gap:10px;}
+  .ev-text{font-size:12px;color:var(--text-secondary);margin-top:5px;line-height:1.5;}
+  .empty{padding:40px 14px;text-align:center;color:var(--text-muted);font-size:13px;}
+
+  .leaflet-popup-content-wrapper{background:var(--panel2);color:var(--text);border-radius:8px;}
+  .leaflet-popup-tip{background:var(--panel2);}
+  .pop-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:500;margin-bottom:3px;}
+  .pop-loc{font-size:13px;font-weight:500;margin-bottom:4px;}
+  .pop-txt{font-size:12px;color:var(--text-secondary);max-width:220px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <i class="ti ti-map-pin-bolt" aria-hidden="true"></i>
+      <div>
+        <h1>Mapa de calor jornalístico</h1>
+        <span id="gerado">carregando…</span>
+      </div>
+    </div>
+    <div class="status">
+      <span style="display:flex;align-items:center;gap:8px;"><span class="dot" id="liveDot"></span><span id="liveText">ao vivo</span></span>
+      <span class="sep"></span>
+      <span>próxima busca em <b id="countdown" style="color:var(--text-secondary);">30s</b></span>
+      <select class="intervalSel" id="selIntervalo">
+        <option value="15">a cada 15s</option>
+        <option value="30" selected>a cada 30s</option>
+        <option value="60">a cada 1min</option>
+        <option value="300">a cada 5min</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"><i class="ti ti-bell-ringing" aria-hidden="true"></i><span id="bannerTxt"></span></div>
+
+  <div class="toolbar">
+    <div class="seg" id="segTempo">
+      <button data-h="1">1h</button>
+      <button data-h="6" class="on">6h</button>
+      <button data-h="24">24h</button>
+      <button data-h="72">72h</button>
+    </div>
+
+    <select id="selUf"><option value="">Todos os estados</option></select>
+
+    <div class="cats" id="catChips"></div>
+
+    <div class="spacer"></div>
+    <button class="refresh" id="btnRefresh"><i class="ti ti-refresh" aria-hidden="true"></i>Atualizar</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="l">Eventos no período</div><div class="v" id="mTotal">—</div></div>
+    <div class="metric"><div class="l">Alertas ativos</div><div class="v alert" id="mAlertas">—</div></div>
+    <div class="metric"><div class="l">Categoria mais citada</div><div class="v" id="mCat" style="font-size:15px;">—</div></div>
+    <div class="metric"><div class="l">Estado mais citado</div><div class="v" id="mUf" style="font-size:15px;">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Mapa</h2>
+      <div id="map"></div>
+    </div>
+    <div class="card">
+      <h2>Eventos (mais recentes primeiro)</h2>
+      <div class="list" id="lista"><div class="empty">Carregando eventos…</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const ENDPOINT = "https://services-n8n.8a8cte.easypanel.host/webhook/eventos-painel";
+
+const CATS = {
+  tiroteio:   { label: "Tiroteio",   color: "#e34948", icon: "ti-alert-triangle" },
+  alagamento: { label: "Alagamento", color: "#2a78d6", icon: "ti-droplet" },
+  acidente:   { label: "Acidente",   color: "#eb6834", icon: "ti-car" },
+  seguranca:  { label: "Segurança",  color: "#e87ba4", icon: "ti-shield-exclamation" },
+  falta_luz:  { label: "Falta de luz", color: "#9085e9", icon: "ti-bulb-off" },
+  transito:   { label: "Trânsito",   color: "#eda100", icon: "ti-traffic-cone" },
+  chuva:      { label: "Chuva",      color: "#1baf7a", icon: "ti-cloud-rain" },
+  outro:      { label: "Outro",      color: "#6b7482", icon: "ti-dots" }
+};
+
+let horas = 6;
+let ufAtual = "";
+let categoriasOff = new Set();
+let map, markersLayer;
+let eventosAtuais = [];
+let selecionadoId = null;
+
+let intervaloSegundos = 30;
+let restante = intervaloSegundos;
+let idsConhecidos = new Set();
+let novosIds = new Set();
+let primeiraCarga = true;
+
+function initMap(){
+  map = L.map('map', { zoomControl: true }).setView([-15.78, -47.93], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+}
+
+function corCategoria(cat){
+  return (CATS[cat] || CATS.outro).color;
+}
+
+function tempoRelativo(iso){
+  if(!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.round(diffMs / 60000);
+  if(min < 1) return "agora";
+  if(min < 60) return `há ${min}min`;
+  const h = Math.round(min/60);
+  if(h < 24) return `há ${h}h`;
+  return `há ${Math.round(h/24)}d`;
+}
+
+function buildChips(){
+  const el = document.getElementById('catChips');
+  el.innerHTML = '';
+  Object.entries(CATS).forEach(([key, c]) => {
+    if(key === 'outro') return;
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.cat = key;
+    chip.innerHTML = `<span class="sw" style="background:${c.color}"></span>${c.label}`;
+    chip.onclick = () => {
+      if(categoriasOff.has(key)){ categoriasOff.delete(key); chip.classList.remove('off'); }
+      else { categoriasOff.add(key); chip.classList.add('off'); }
+      carregar();
+    };
+    el.appendChild(chip);
+  });
+}
+
+function montarUrl(){
+  const ativas = Object.keys(CATS).filter(k => k !== 'outro' && !categoriasOff.has(k));
+  const params = new URLSearchParams();
+  params.set('horas', horas);
+  if(ufAtual) params.set('uf', ufAtual);
+  if(ativas.length && ativas.length < Object.keys(CATS).length - 1){
+    params.set('categorias', ativas.join(','));
+  }
+  return `${ENDPOINT}?${params.toString()}`;
+}
+
+async function carregar(){
+  document.getElementById('liveText').textContent = 'atualizando…';
+  try{
+    const res = await fetch(montarUrl());
+    const data = await res.json();
+    eventosAtuais = data.eventos || [];
+
+    const idsAgora = new Set(eventosAtuais.map(e => e.id));
+    novosIds = new Set();
+    if(!primeiraCarga){
+      eventosAtuais.forEach(e => { if(!idsConhecidos.has(e.id)) novosIds.add(e.id); });
+      if(novosIds.size > 0) mostrarBanner(novosIds.size);
+    }
+    idsConhecidos = idsAgora;
+    primeiraCarga = false;
+
+    renderMetrics(data);
+    renderUfOptions(data.por_uf || {});
+    renderMap();
+    renderLista();
+    document.getElementById('gerado').textContent = `atualizado ${tempoRelativo(data.gerado_em)}`;
+    document.getElementById('liveDot').classList.remove('stale');
+    document.getElementById('liveText').textContent = 'ao vivo';
+  }catch(err){
+    document.getElementById('liveDot').classList.add('stale');
+    document.getElementById('liveText').textContent = 'sem conexão com o servidor';
+  }
+  restante = intervaloSegundos;
+}
+
+function mostrarBanner(qtd){
+  const banner = document.getElementById('banner');
+  const txt = document.getElementById('bannerTxt');
+  txt.textContent = qtd === 1 ? '1 novo evento chegou' : `${qtd} novos eventos chegaram`;
+  banner.classList.add('show');
+  clearTimeout(mostrarBanner._t);
+  mostrarBanner._t = setTimeout(() => banner.classList.remove('show'), 6000);
+}
+
+function renderMetrics(data){
+  document.getElementById('mTotal').textContent = data.total ?? 0;
+  document.getElementById('mAlertas').textContent = data.alertas_ativos ?? 0;
+
+  const porCat = data.por_categoria || {};
+  const topCat = Object.entries(porCat).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('mCat').textContent = topCat ? `${(CATS[topCat[0]]||{label:topCat[0]}).label} (${topCat[1]})` : '—';
+
+  const porUf = data.por_uf || {};
+  const topUf = Object.entries(porUf).filter(([k]) => k !== 'indefinido').sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('mUf').textContent = topUf ? `${topUf[0]} (${topUf[1]})` : '—';
+}
+
+function renderUfOptions(porUf){
+  const sel = document.getElementById('selUf');
+  const atual = sel.value;
+  const ufs = Object.keys(porUf).filter(k => k !== 'indefinido').sort();
+  sel.innerHTML = '<option value="">Todos os estados</option>' +
+    ufs.map(uf => `<option value="${uf}">${uf}</option>`).join('');
+  sel.value = ufAtual || atual || '';
+}
+
+function renderMap(){
+  markersLayer.clearLayers();
+  const pontos = eventosAtuais.filter(e => e.latitude && e.longitude);
+
+  pontos.forEach(e => {
+    const cor = corCategoria(e.categoria);
+    const raio = 6 + Math.min(10, (e.quantidade || 1) * 2);
+    const marker = L.circleMarker([e.latitude, e.longitude], {
+      radius: raio,
+      color: cor,
+      weight: e.alerta_enviado ? 3 : 1.5,
+      fillColor: cor,
+      fillOpacity: 0.55
+    });
+
+    const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ');
+    const catInfo = CATS[e.categoria] || CATS.outro;
+    marker.bindTooltip(`<b>${catInfo.label}</b><br>${local || 'local não identificado'}`, { direction: 'top' });
+    marker.bindPopup(`
+      <div class="pop-cat" style="color:${cor}">${catInfo.label}${e.alerta_enviado ? ' · ALERTA' : ''}</div>
+      <div class="pop-loc">${local || 'local não identificado'}</div>
+      <div class="pop-txt">${(e.texto_original || e.ultimo_texto || e.resumo_objetivo || '').toString().slice(0,140)}</div>
+      <div class="pop-txt" style="margin-top:4px;">${e.quantidade || 1} relato(s) · ${tempoRelativo(e.atualizado_em)}</div>
+    `);
+    marker.on('click', () => selecionar(e.id));
+    marker.addTo(markersLayer);
+  });
+
+  if(pontos.length){
+    const bounds = L.latLngBounds(pontos.map(e => [e.latitude, e.longitude]));
+    map.fitBounds(bounds, { padding: [30,30], maxZoom: 13 });
+  }
+}
+
+function renderLista(){
+  const el = document.getElementById('lista');
+  if(!eventosAtuais.length){
+    el.innerHTML = '<div class="empty">Nenhum evento no período e filtros selecionados.</div>';
+    return;
+  }
+  const ordenado = [...eventosAtuais].sort((a,b) => new Date(b.atualizado_em) - new Date(a.atualizado_em));
+  el.innerHTML = ordenado.map(e => {
+    const catInfo = CATS[e.categoria] || CATS.outro;
+    const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ') || 'local não identificado';
+    const texto = (e.texto_original || e.ultimo_texto || '').toString();
+    return `
+      <div class="ev ${e.id === selecionadoId ? 'sel' : ''} ${novosIds.has(e.id) ? 'novo' : ''}" data-id="${e.id}">
+        <div class="ev-top">
+          <span class="ev-cat" style="background:${catInfo.color}"></span>
+          <span class="ev-title">${catInfo.label} — ${local}</span>
+          ${novosIds.has(e.id) ? '<span class="ev-novo-badge">novo</span>' : ''}
+          ${e.alerta_enviado ? '<span class="ev-alert">ALERTA</span>' : ''}
+        </div>
+        <div class="ev-meta">
+          <span>${e.quantidade || 1} relato(s)</span>
+          <span>score ${e.score ?? 0}</span>
+          <span>${tempoRelativo(e.atualizado_em)}</span>
+        </div>
+        ${texto ? `<div class="ev-text">${texto.slice(0,160)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('.ev').forEach(node => {
+    node.addEventListener('click', () => selecionar(node.dataset.id));
+  });
+}
+
+function selecionar(id){
+  selecionadoId = id;
+  renderLista();
+  const e = eventosAtuais.find(x => x.id === id);
+  if(e && e.latitude && e.longitude){
+    map.flyTo([e.latitude, e.longitude], 14, { duration: 0.6 });
+  }
+}
+
+document.getElementById('segTempo').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if(!btn) return;
+  horas = Number(btn.dataset.h);
+  document.querySelectorAll('#segTempo button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  carregar();
+});
+
+document.getElementById('selUf').addEventListener('change', (ev) => {
+  ufAtual = ev.target.value;
+  carregar();
+});
+
+document.getElementById('btnRefresh').addEventListener('click', carregar);
+
+document.getElementById('selIntervalo').addEventListener('change', (ev) => {
+  intervaloSegundos = Number(ev.target.value);
+  restante = intervaloSegundos;
+});
+
+setInterval(() => {
+  restante -= 1;
+  if(restante <= 0){
+    carregar();
+  } else {
+    document.getElementById('countdown').textContent = `${restante}s`;
+  }
+}, 1000);
+
+initMap();
+buildChips();
+carregar();
+</script>
+</body>
+</html>
