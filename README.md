@@ -65,7 +65,7 @@ Dashboard standalone (HTML/CSS/JS puro, sem build) com:
 - Lista de eventos clicável (aproxima o mapa no evento selecionado).
 - Atualização automática configurável (15s/30s/1min/5min) com contador regressivo visível
   e destaque para eventos novos desde a última busca.
-- Consome o endpoint `GET /webhook/eventos-painel` do próprio n8n.
+- Consome o endpoint `GET /webhook/eventos-painel` servido pelo Worker publicado no Cloudflare.
 
 ## Banco de dados (Supabase)
 
@@ -97,5 +97,15 @@ acesso simples ao endpoint.
 open painel/index.html
 ```
 
-O painel já aponta para o endpoint de produção do n8n
-(`https://services-n8n.8a8cte.easypanel.host/webhook/eventos-painel`).
+O painel usa a própria origem publicada no Cloudflare, com a rota `/webhook/eventos-painel` servida pelo Worker.
+## Deploy no Cloudflare Workers
+
+Este repositório já vem preparado para publicação com `wrangler`.
+
+```bash
+wrangler login
+wrangler deploy
+```
+
+O Worker serve os arquivos estáticos da pasta `painel/`, então o `painel/index.html`
+abre direto na raiz do site publicado.

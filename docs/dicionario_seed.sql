@@ -10,7 +10,8 @@ INSERT INTO categorias_evento (categoria, editoria, peso, confianca, urgencia, o
   ('seguranca',  'segurança',  7, 0.80, 4, 4),
   ('falta_luz',  'serviço',    6, 0.75, 3, 5),
   ('transito',   'trânsito',   6, 0.75, 3, 6),
-  ('chuva',      'tempo',      4, 0.80, 2, 7)
+  ('incendio',   'segurança',  8, 0.85, 4, 7),
+  ('chuva',      'tempo',      4, 0.80, 2, 8)
 ON CONFLICT (categoria) DO NOTHING;
 
 INSERT INTO termos_categoria (categoria, termo, tipo) VALUES
@@ -70,6 +71,14 @@ INSERT INTO termos_categoria (categoria, termo, tipo) VALUES
   ('transito', 'via interditada', 'frase'),
   ('transito', 'transito parado', 'frase'),
   ('transito', 'retencao no transito', 'frase'),
+  ('incendio', 'chamas', 'frase'),
+  ('incendio', 'fogo na mata', 'frase'),
+  ('incendio', 'incendio na mata', 'frase'),
+  ('incendio', 'carro pegando fogo', 'frase'),
+  ('incendio', 'pegando fogo', 'frase'),
+  ('incendio', 'fogo', 'frase'),
+  ('incendio', 'queim', 'raiz'),
+  ('incendio', 'incend', 'raiz'),
 
   ('chuva', 'chuv', 'raiz'),
   ('chuva', 'tempora', 'raiz'),

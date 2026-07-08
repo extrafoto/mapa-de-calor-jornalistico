@@ -15,7 +15,7 @@ CREATE TABLE public.eventos (
   texto_normalizado      text,
   ultimo_texto           text,
 
-  categoria              text,               -- tiroteio | alagamento | acidente | seguranca | falta_luz | transito | chuva | outro
+  categoria              text,               -- tiroteio | alagamento | acidente | seguranca | falta_luz | transito | incendio | chuva | outro
   editoria               text,
   confianca              double precision,
   urgencia               integer,

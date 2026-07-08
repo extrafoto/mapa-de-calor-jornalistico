@@ -1,0 +1,7 @@
+name = "mapa-de-calor-jornalistico"
+main = "src/worker.ts"
+compatibility_date = "2026-07-06"
+
+[assets]
+directory = "./painel"
+binding = "ASSETS"

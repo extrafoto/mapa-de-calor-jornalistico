@@ -12,11 +12,11 @@
     --text:#e6e9ef; --text-secondary:#9aa4b2; --text-muted:#6b7482;
     --accent:#eda100;
     --tiroteio:#e34948; --alagamento:#2a78d6; --transito:#eda100; --acidente:#eb6834;
-    --seguranca:#e87ba4; --falta_luz:#9085e9; --chuva:#1baf7a; --outro:#6b7482;
+    --seguranca:#e87ba4; --falta_luz:#9085e9; --incendio:#ff6b35; --chuva:#1baf7a; --outro:#6b7482;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  .wrap{max-width:1400px;margin:0 auto;padding:20px;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;height:100vh;overflow:hidden;}
+  .wrap{width:min(calc(100vw - 40px), 1680px);height:calc(100vh - 100px);margin:0 auto;padding:20px 20px 100px;display:flex;flex-direction:column;box-sizing:border-box;}
 
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;}
   .brand{display:flex;align-items:center;gap:10px;}
@@ -34,6 +34,8 @@
 
   @keyframes pulseNovo{0%{background:rgba(237,161,0,0.22);}100%{background:transparent;}}
   .ev.novo{animation:pulseNovo 2.5s ease-out 1;}
+  @keyframes pulseAlert{0%{transform:scale(1);opacity:.85;filter:drop-shadow(0 0 0 rgba(227,73,72,0));}50%{transform:scale(1.2);opacity:1;filter:drop-shadow(0 0 10px rgba(227,73,72,.65));}100%{transform:scale(1);opacity:.85;filter:drop-shadow(0 0 0 rgba(227,73,72,0));}}
+  .leaflet-interactive.alert-pulse{animation:pulseAlert 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center;}
   .ev-novo-badge{font-size:10px;color:var(--accent);border:0.5px solid var(--accent);border-radius:4px;padding:1px 5px;}
 
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;}
@@ -56,14 +58,14 @@
   .metric .v{font-size:22px;font-weight:500;font-family:ui-monospace,monospace;}
   .metric .v.alert{color:var(--tiroteio);}
 
-  .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;}
-  @media(max-width:900px){.grid{grid-template-columns:1fr;} .metrics{grid-template-columns:repeat(2,1fr);}}
+  .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;flex:1;min-height:0;align-items:stretch;overflow:hidden;}
+  @media(max-width:900px){body{overflow:auto;} .wrap{height:auto;min-height:calc(100vh - 100px);} .grid{grid-template-columns:1fr;} .metrics{grid-template-columns:repeat(2,1fr);} #map,.list{min-height:320px;}}
 
-  .card{background:var(--panel);border:0.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .card{background:var(--panel);border:0.5px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-height:0;height:100%;}
   .card h2{font-size:13px;font-weight:500;margin:0;padding:12px 14px;border-bottom:0.5px solid var(--border);color:var(--text-secondary);}
-  #map{height:560px;width:100%;background:#0e1116;}
+  #map{flex:1;height:100%;min-height:0;width:100%;background:#0e1116;}
 
-  .list{max-height:560px;overflow-y:auto;}
+  .list{flex:1;height:100%;min-height:0;overflow-y:auto;}
   .ev{padding:11px 14px;border-bottom:0.5px solid var(--border);cursor:pointer;}
   .ev:hover{background:var(--panel2);}
   .ev.sel{background:var(--panel2);border-left:2px solid var(--accent);}
@@ -111,9 +113,9 @@
   <div class="toolbar">
     <div class="seg" id="segTempo">
       <button data-h="1">1h</button>
-      <button data-h="6" class="on">6h</button>
+      <button data-h="6">6h</button>
       <button data-h="24">24h</button>
-      <button data-h="72">72h</button>
+      <button data-h="72" class="on">72h</button>
     </div>
 
     <select id="selUf"><option value="">Todos os estados</option></select>
@@ -125,7 +127,7 @@
   </div>
 
   <div class="metrics">
-    <div class="metric"><div class="l">Eventos no período</div><div class="v" id="mTotal">—</div></div>
+    <div class="metric"><div class="l">Eventos nas últimas 72h</div><div class="v" id="mTotal">—</div></div>
     <div class="metric"><div class="l">Alertas ativos</div><div class="v alert" id="mAlertas">—</div></div>
     <div class="metric"><div class="l">Categoria mais citada</div><div class="v" id="mCat" style="font-size:15px;">—</div></div>
     <div class="metric"><div class="l">Estado mais citado</div><div class="v" id="mUf" style="font-size:15px;">—</div></div>
@@ -146,7 +148,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const ENDPOINT = "https://services-n8n.8a8cte.easypanel.host/webhook/eventos-painel";
+const ENDPOINT = "/webhook/eventos-painel";
 
 const CATS = {
   tiroteio:   { label: "Tiroteio",   color: "#e34948", icon: "ti-alert-triangle" },
@@ -155,11 +157,12 @@ const CATS = {
   seguranca:  { label: "Segurança",  color: "#e87ba4", icon: "ti-shield-exclamation" },
   falta_luz:  { label: "Falta de luz", color: "#9085e9", icon: "ti-bulb-off" },
   transito:   { label: "Trânsito",   color: "#eda100", icon: "ti-traffic-cone" },
+  incendio:   { label: "Incêndio",   color: "#ff6b35", icon: "ti-flame" },
   chuva:      { label: "Chuva",      color: "#1baf7a", icon: "ti-cloud-rain" },
   outro:      { label: "Outro",      color: "#6b7482", icon: "ti-dots" }
 };
 
-let horas = 6;
+let horas = 72;
 let ufAtual = "";
 let categoriasOff = new Set();
 let map, markersLayer;
@@ -298,7 +301,8 @@ function renderMap(){
       color: cor,
       weight: e.alerta_enviado ? 3 : 1.5,
       fillColor: cor,
-      fillOpacity: 0.55
+      fillOpacity: 0.55,
+      className: e.alerta_enviado ? "alert-pulse" : ""
     });
 
     const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ');
