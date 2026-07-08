@@ -34,8 +34,9 @@
 
   @keyframes pulseNovo{0%{background:rgba(237,161,0,0.22);}100%{background:transparent;}}
   .ev.novo{animation:pulseNovo 2.5s ease-out 1;}
-  @keyframes pulseAlert{0%{transform:scale(1);opacity:.85;filter:drop-shadow(0 0 0 rgba(227,73,72,0));}50%{transform:scale(1.2);opacity:1;filter:drop-shadow(0 0 10px rgba(227,73,72,.65));}100%{transform:scale(1);opacity:.85;filter:drop-shadow(0 0 0 rgba(227,73,72,0));}}
-  .leaflet-interactive.alert-pulse{animation:pulseAlert 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center;}
+  @keyframes pulseAlertRing{0%{transform:scale(1);opacity:.55;stroke-width:2;}70%{transform:scale(2.1);opacity:.18;stroke-width:7;}100%{transform:scale(2.6);opacity:0;stroke-width:10;}}
+  .leaflet-interactive.alert-pulse{transform-box:fill-box;transform-origin:center;}
+  .leaflet-interactive.alert-halo{animation:pulseAlertRing 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center;fill:none;pointer-events:none;}
   .ev-novo-badge{font-size:10px;color:var(--accent);border:0.5px solid var(--accent);border-radius:4px;padding:1px 5px;}
 
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;}
@@ -304,6 +305,19 @@ function renderMap(){
       fillOpacity: 0.55,
       className: e.alerta_enviado ? "alert-pulse" : ""
     });
+
+    if (e.alerta_enviado) {
+      const halo = L.circleMarker([e.latitude, e.longitude], {
+        radius: raio + 8,
+        color: cor,
+        weight: 2,
+        fillOpacity: 0,
+        opacity: 0.9,
+        interactive: false,
+        className: "alert-halo"
+      });
+      markersLayer.addLayer(halo);
+    }
 
     const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ');
     const catInfo = CATS[e.categoria] || CATS.outro;
