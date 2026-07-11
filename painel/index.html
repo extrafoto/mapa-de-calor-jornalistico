@@ -12,7 +12,7 @@
     --text:#e6e9ef; --text-secondary:#9aa4b2; --text-muted:#6b7482;
     --accent:#eda100;
     --tiroteio:#e34948; --alagamento:#2a78d6; --transito:#eda100; --acidente:#eb6834;
-    --seguranca:#e87ba4; --falta_luz:#9085e9; --chuva:#1baf7a; --outro:#6b7482;
+    --seguranca:#e87ba4; --falta_luz:#9085e9; --incendio:#ff6b35; --chuva:#1baf7a; --outro:#6b7482;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow:auto;}
@@ -240,6 +240,7 @@ const CATS = {
   seguranca:  { label: "Segurança",  color: "#e87ba4", icon: "ti-shield-exclamation" },
   falta_luz:  { label: "Falta de luz", color: "#9085e9", icon: "ti-bulb-off" },
   transito:   { label: "Trânsito",   color: "#eda100", icon: "ti-traffic-cone" },
+  incendio:   { label: "Incêndio",   color: "#ff6b35", icon: "ti-flame" },
   chuva:      { label: "Chuva",      color: "#1baf7a", icon: "ti-cloud-rain" },
   outro:      { label: "Outro",      color: "#6b7482", icon: "ti-dots" }
 };
