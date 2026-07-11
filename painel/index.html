@@ -262,11 +262,28 @@ function imagemDataUrl(evento){
   return `data:${mime};base64,${base64}`;
 }
 
+function imagemOriginalUrl(evento){
+  const valor = String(evento?.imagem_url || "").trim();
+  if(!valor) return "";
+  try{
+    const url = new URL(valor);
+    return url.protocol === "https:" ? url.href : "";
+  }catch(_err){
+    return "";
+  }
+}
+
 function abrirImagemEvento(id){
   const evento = eventosAtuais.find((item) => String(item.id) === String(id));
-  const src = imagemDataUrl(evento);
+  const fallback = imagemDataUrl(evento);
+  const src = imagemOriginalUrl(evento) || fallback;
   if(!src) return;
-  document.getElementById("imageLightboxImg").src = src;
+  const imagem = document.getElementById("imageLightboxImg");
+  imagem.onerror = () => {
+    imagem.onerror = null;
+    if(fallback && imagem.src !== fallback) imagem.src = fallback;
+  };
+  imagem.src = src;
   const modal = document.getElementById("imageLightbox");
   modal.classList.add("show");
   modal.setAttribute("aria-hidden", "false");
@@ -276,7 +293,9 @@ function fecharImagemEvento(){
   const modal = document.getElementById("imageLightbox");
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
-  document.getElementById("imageLightboxImg").removeAttribute("src");
+  const imagem = document.getElementById("imageLightboxImg");
+  imagem.onerror = null;
+  imagem.removeAttribute("src");
 }
 
 const CATS = {
@@ -323,24 +342,7 @@ function corCategoria(cat){
 
 function tempoRelativo(iso){
   if(!iso) return "";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.round(diffMs / 60000);
-  if(min < 1) return "agora";
-  if(min < 60) return `há ${min}min`;
-  const h = Math.round(min/60);
-  if(h < 24) return `há ${h}h`;
-  return `há ${Math.round(h/24)}d`;
-}
-
-function buildChips(){
-  const el = document.getElementById('catChips');
-  el.innerHTML = '';
-  Object.entries(CATS).forEach(([key, c]) => {
-    if(key === 'outro') return;
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-    chip.dataset.cat = key;
-    chip.innerHTML = `<span class="sw" style="background:${c.color}"></span>${c.label}`;
+  c…155 tokens truncated…pan>${c.label}`;
     chip.onclick = () => {
       if(categoriasOff.has(key)){ categoriasOff.delete(key); chip.classList.remove('off'); }
       else { categoriasOff.add(key); chip.classList.add('off'); }
@@ -489,6 +491,8 @@ function renderDetalheEvento(evento){
   const local = [evento.bairro, evento.municipio, evento.uf].filter(Boolean).join(", ") || "local não identificado";
   const relatos = normalizarRelatos(evento);
   const fallback = textoFallbackEvento(evento);
+  const remetente = evento.push_name || evento.nome_remetente || evento.nome_autor || "Não informado";
+  const numeroRemetente = evento.ultimo_numero || evento.numero || "Não informado";
 
   titulo.textContent = `${catInfo.label} — ${local}`;
   sub.textContent = `${evento.quantidade || 1} relato(s) • score ${evento.score ?? 0} • ${tempoRelativo(evento.atualizado_em) || "sem data"}`;
@@ -537,7 +541,9 @@ function renderDetalheEvento(evento){
           <div class="modal-note" style="margin-top:12px;">
             <strong>Local:</strong> ${escapeHtml(local)}<br>
             <strong>Atualizado:</strong> ${escapeHtml(evento.atualizado_em || "—")}<br>
-            <strong>Origem:</strong> ${escapeHtml(evento.origem || "—")}
+            <strong>Origem:</strong> ${escapeHtml(evento.origem || "—")}<br>
+            <strong>Remetente:</strong> ${escapeHtml(remetente)}<br>
+            <strong>WhatsApp:</strong> ${escapeHtml(numeroRemetente)}
           </div>
         </div>
       </div>
