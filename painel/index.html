@@ -86,6 +86,11 @@
   .ev-alert{font-size:10px;color:var(--tiroteio);border:0.5px solid var(--tiroteio);border-radius:4px;padding:1px 5px;}
   .ev-meta{font-size:11px;color:var(--text-muted);font-family:ui-monospace,monospace;display:flex;gap:10px;}
   .ev-text{font-size:12px;color:var(--text-secondary);margin-top:5px;line-height:1.5;}
+  .ev-content{display:flex;align-items:flex-start;gap:10px;}
+  .ev-copy{flex:1;min-width:0;}
+  .ev-thumb{width:56px;height:56px;flex:0 0 56px;padding:0;border:0.5px solid var(--border-strong);border-radius:8px;overflow:hidden;background:var(--panel2);cursor:zoom-in;}
+  .ev-thumb img{display:block;width:100%;height:100%;object-fit:cover;}
+  .ev-thumb:hover{border-color:var(--accent);}
   .empty{padding:40px 14px;text-align:center;color:var(--text-muted);font-size:13px;}
 
   .leaflet-popup-content-wrapper{background:var(--panel2);color:var(--text);border-radius:8px;}
@@ -93,6 +98,7 @@
   .pop-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:500;margin-bottom:3px;}
   .pop-loc{font-size:13px;font-weight:500;margin-bottom:4px;}
   .pop-txt{font-size:12px;color:var(--text-secondary);max-width:220px;}
+  .pop-thumb{display:block;width:100%;max-width:220px;height:110px;object-fit:cover;margin-top:8px;border:0.5px solid var(--border-strong);border-radius:8px;cursor:zoom-in;}
 
   .chart-box{background:var(--panel);border:0.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .chart-box h2{font-size:13px;font-weight:500;margin:0;padding:12px 14px;border-bottom:0.5px solid var(--border);color:var(--text-secondary);}
@@ -130,6 +136,12 @@
   .relato-item .time{font-size:11px;color:var(--text-muted);font-family:ui-monospace,monospace;}
   .relato-item .txt{font-size:13px;line-height:1.55;color:var(--text-secondary);white-space:pre-wrap;}
   .modal-note{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.5;}
+  .image-lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(5,8,12,.88);backdrop-filter:blur(5px);z-index:10000;}
+  .image-lightbox.show{display:flex;}
+  .image-lightbox-figure{position:relative;margin:0;max-width:min(92vw,900px);max-height:88vh;display:flex;align-items:center;justify-content:center;}
+  .image-lightbox-img{display:block;max-width:100%;max-height:88vh;object-fit:contain;border:0.5px solid var(--border-strong);border-radius:12px;background:var(--panel);box-shadow:0 28px 80px rgba(0,0,0,.55);}
+  .image-lightbox-close{position:absolute;top:-14px;right:-14px;width:34px;height:34px;border:0.5px solid var(--border-strong);border-radius:50%;background:var(--panel);color:var(--text);font-size:20px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .image-lightbox-close:hover{background:var(--panel2);border-color:var(--accent);}
   @media(max-width:900px){
     .modal-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
     .modal-grid{grid-template-columns:1fr;}
@@ -220,6 +232,13 @@
   </div>
 </div>
 
+<div class="image-lightbox" id="imageLightbox" aria-hidden="true">
+  <figure class="image-lightbox-figure" role="dialog" aria-modal="true" aria-label="Imagem do evento">
+    <img class="image-lightbox-img" id="imageLightboxImg" alt="Imagem enviada no relato">
+    <button class="image-lightbox-close" id="imageLightboxClose" type="button" aria-label="Fechar imagem">×</button>
+  </figure>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const ENDPOINT = "/webhook/eventos-painel";
@@ -231,6 +250,31 @@ function escapeHtml(value){
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function imagemDataUrl(evento){
+  if(evento?.tem_imagem !== true) return "";
+  const mime = String(evento.imagem_mimetype || "").trim().toLowerCase();
+  const base64 = String(evento.imagem_thumbnail_base64 || "").replace(/\s+/g, "");
+  if(!/^image\/[a-z0-9.+-]+$/.test(mime) || !/^[a-z0-9+/]+={0,2}$/i.test(base64)) return "";
+  return `data:${mime};base64,${base64}`;
+}
+
+function abrirImagemEvento(id){
+  const evento = eventosAtuais.find((item) => String(item.id) === String(id));
+  const src = imagemDataUrl(evento);
+  if(!src) return;
+  document.getElementById("imageLightboxImg").src = src;
+  const modal = document.getElementById("imageLightbox");
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function fecharImagemEvento(){
+  const modal = document.getElementById("imageLightbox");
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+  document.getElementById("imageLightboxImg").removeAttribute("src");
 }
 
 const CATS = {
@@ -686,12 +730,14 @@ function renderMap(){
 
     const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ');
     const catInfo = CATS[e.categoria] || CATS.outro;
+    const imagem = imagemDataUrl(e);
     marker.bindTooltip(`<b>${catInfo.label}</b><br>${local || 'local não identificado'}`, { direction: 'top' });
     marker.bindPopup(`
       <div class="pop-cat" style="color:${cor}">${catInfo.label}${e.alerta_enviado ? ' · ALERTA' : ''}</div>
       <div class="pop-loc">${local || 'local não identificado'}</div>
       <div class="pop-txt">${(e.texto_original || e.ultimo_texto || e.resumo_objetivo || '').toString().slice(0,140)}</div>
       <div class="pop-txt" style="margin-top:4px;">${e.quantidade || 1} relato(s) · ${tempoRelativo(e.atualizado_em)}</div>
+      ${imagem ? `<img class="pop-thumb event-image-trigger" data-event-id="${escapeHtml(e.id)}" src="${escapeHtml(imagem)}" alt="Imagem do evento">` : ''}
     `);
     marker.on('click', () => abrirModalEvento(e.id));
     marker.addTo(markersLayer);
@@ -714,25 +760,34 @@ function renderLista(){
     const catInfo = CATS[e.categoria] || CATS.outro;
     const local = [e.bairro, e.municipio, e.uf].filter(Boolean).join(', ') || 'local não identificado';
     const texto = (e.texto_original || e.ultimo_texto || '').toString();
+    const imagem = imagemDataUrl(e);
     return `
       <div class="ev ${e.id === selecionadoId ? 'sel' : ''} ${novosIds.has(e.id) ? 'novo' : ''}" data-id="${e.id}">
-        <div class="ev-top">
-          <span class="ev-cat" style="background:${catInfo.color}"></span>
-          <span class="ev-title">${catInfo.label} — ${local}</span>
-          ${novosIds.has(e.id) ? '<span class="ev-novo-badge">novo</span>' : ''}
-          ${e.alerta_enviado ? '<span class="ev-alert">ALERTA</span>' : ''}
+        <div class="ev-content">
+          <div class="ev-copy">
+            <div class="ev-top">
+              <span class="ev-cat" style="background:${catInfo.color}"></span>
+              <span class="ev-title">${catInfo.label} — ${local}</span>
+              ${novosIds.has(e.id) ? '<span class="ev-novo-badge">novo</span>' : ''}
+              ${e.alerta_enviado ? '<span class="ev-alert">ALERTA</span>' : ''}
+            </div>
+            <div class="ev-meta">
+              <span>${e.quantidade || 1} relato(s)</span>
+              <span>score ${e.score ?? 0}</span>
+              <span>${tempoRelativo(e.atualizado_em)}</span>
+            </div>
+            ${texto ? `<div class="ev-text">${texto.slice(0,160)}</div>` : ''}
+          </div>
+          ${imagem ? `<button class="ev-thumb event-image-trigger" type="button" data-event-id="${escapeHtml(e.id)}" aria-label="Ampliar imagem do evento"><img src="${escapeHtml(imagem)}" alt="Miniatura do evento"></button>` : ''}
         </div>
-        <div class="ev-meta">
-          <span>${e.quantidade || 1} relato(s)</span>
-          <span>score ${e.score ?? 0}</span>
-          <span>${tempoRelativo(e.atualizado_em)}</span>
-        </div>
-        ${texto ? `<div class="ev-text">${texto.slice(0,160)}</div>` : ''}
       </div>`;
   }).join('');
 
   el.querySelectorAll('.ev').forEach(node => {
-    node.addEventListener('click', () => abrirModalEvento(node.dataset.id));
+    node.addEventListener('click', (ev) => {
+      if(ev.target.closest('.event-image-trigger')) return;
+      abrirModalEvento(node.dataset.id);
+    });
   });
 }
 
@@ -791,6 +846,14 @@ document.getElementById('inpMunicipio').addEventListener('keydown', (ev) => {
 document.getElementById('btnRefresh').addEventListener('click', carregar);
 
 document.addEventListener('click', (ev) => {
+  const imagem = ev.target.closest('.event-image-trigger');
+  if(imagem){
+    ev.preventDefault();
+    ev.stopPropagation();
+    abrirImagemEvento(imagem.dataset.eventId);
+    return;
+  }
+
   const wrapper = ev.target.closest('.city-filter');
   if(!wrapper){
     ocultarSugestoes();
@@ -810,8 +873,17 @@ document.getElementById('eventoModal').addEventListener('click', (ev) => {
 });
 document.addEventListener('keydown', (ev) => {
   if(ev.key === 'Escape'){
+    fecharImagemEvento();
     fecharModalEvento();
   }
+});
+
+document.getElementById('imageLightboxClose').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  fecharImagemEvento();
+});
+document.getElementById('imageLightbox').addEventListener('click', (ev) => {
+  if(ev.target.id === 'imageLightbox') fecharImagemEvento();
 });
 
 setInterval(() => {
