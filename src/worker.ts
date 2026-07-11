@@ -43,7 +43,7 @@ async function handleEventosPainel(url: URL): Promise<Response> {
     params.set("municipio_slug", `eq.${municipio}`);
   }
 
-  const totalCategorias = 7;
+  const totalCategorias = 8;
 
   if (categorias.length > 0 && categorias.length < totalCategorias) {
     params.set("categoria", `in.(${categorias.join(",")})`);
