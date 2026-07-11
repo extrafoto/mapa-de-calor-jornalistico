@@ -83,7 +83,11 @@ async function handleEventosPainel(url: URL): Promise<Response> {
     );
   }
 
-  const eventos = (await res.json()) as any[];
+  const eventosBrutos = (await res.json()) as any[];
+  const eventos = eventosBrutos.map((evento) => ({
+    ...evento,
+    tem_imagem: evento?.tem_imagem === true || Boolean(evento?.imagem_thumbnail_base64),
+  }));
   const eventosMunicipios = (await municipiosRes.json()) as any[];
   const porCategoria: Record<string, number> = {};
   const porUf: Record<string, number> = {};
