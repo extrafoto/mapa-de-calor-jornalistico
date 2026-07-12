@@ -20,6 +20,7 @@ export default {
 async function handleEventosPainel(url: URL): Promise<Response> {
   const horas = Number(url.searchParams.get("horas") || "72");
   const uf = (url.searchParams.get("uf") || "").trim().toUpperCase();
+  const municipio = (url.searchParams.get("municipio") || "").trim();
   const categorias = (url.searchParams.get("categorias") || "")
     .split(",")
     .map((item) => item.trim())
@@ -38,34 +39,60 @@ async function handleEventosPainel(url: URL): Promise<Response> {
     params.set("uf", `eq.${uf}`);
   }
 
-  if (categorias.length > 0 && categorias.length < 8) {
+  if (municipio) {
+    params.set("municipio_slug", `eq.${municipio}`);
+  }
+
+  const totalCategorias = 8;
+
+  if (categorias.length > 0 && categorias.length < totalCategorias) {
     params.set("categoria", `in.(${categorias.join(",")})`);
   }
 
+  // Keep city suggestions scoped to the other filters, not to the selected city itself.
+  const municipiosParams = new URLSearchParams(params);
+  municipiosParams.delete("municipio_slug");
+  municipiosParams.set("select", "municipio,municipio_slug");
+
   apiUrl.search = params.toString();
 
-  const res = await fetch(apiUrl.toString(), {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      Accept: "application/json",
-    },
-  });
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    Accept: "application/json",
+  };
 
-  if (!res.ok) {
+  const municipiosUrl = new URL(apiUrl);
+  municipiosUrl.search = municipiosParams.toString();
+
+  const [res, municipiosRes] = await Promise.all([fetch(apiUrl.toString(), {
+    headers,
+  }), fetch(municipiosUrl.toString(), {
+    headers,
+  })]);
+
+  if (!res.ok || !municipiosRes.ok) {
+    const erro = !res.ok ? res : municipiosRes;
     return Response.json(
       {
         error: "supabase_request_failed",
-        status: res.status,
-        details: await res.text(),
+        status: erro.status,
+        details: await erro.text(),
       },
       { status: 502, headers: corsHeaders() },
     );
   }
 
-  const eventos = (await res.json()) as any[];
+  const eventosBrutos = (await res.json()) as any[];
+  const eventos = eventosBrutos.map((evento) => ({
+    ...evento,
+    tem_imagem: evento?.tem_imagem === true || Boolean(evento?.imagem_thumbnail_base64),
+  }));
+  const eventosMunicipios = (await municipiosRes.json()) as any[];
   const porCategoria: Record<string, number> = {};
   const porUf: Record<string, number> = {};
+  const porMunicipio: Record<string, number> = {};
+  const municipios: Record<string, { slug: string; label: string; count: number }> = {};
 
   for (const evento of eventos) {
     const categoria = evento?.categoria || "outro";
@@ -74,12 +101,30 @@ async function handleEventosPainel(url: URL): Promise<Response> {
     porUf[ufEvento] = (porUf[ufEvento] || 0) + 1;
   }
 
+  for (const evento of eventosMunicipios) {
+    const municipioEvento = evento?.municipio_slug || evento?.municipio || "indefinido";
+    const municipioSlug = municipioEvento || "indefinido";
+    const municipioLabel = evento?.municipio || evento?.municipio_slug || "Indefinido";
+    porMunicipio[municipioSlug] = (porMunicipio[municipioSlug] || 0) + 1;
+    municipios[municipioSlug] = {
+      slug: municipioSlug,
+      label: municipioLabel,
+      count: (municipios[municipioSlug]?.count || 0) + 1,
+    };
+  }
+
+  const municipiosOrdenados = Object.values(municipios)
+    .filter((item) => item.slug !== "indefinido")
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+
   return Response.json(
     {
       total: eventos.length,
       alertas_ativos: eventos.filter((evento) => evento?.alerta_enviado).length,
       por_categoria: porCategoria,
       por_uf: porUf,
+      por_municipio: porMunicipio,
+      municipios: municipiosOrdenados,
       gerado_em: new Date().toISOString(),
       eventos,
     },
